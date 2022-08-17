@@ -1,0 +1,1 @@
+C:\Users\user\AppData\Local\Programs\Python\Python39\python.exe F:\Code\Python-Projects\Embed-CNC-Part-List\main.py %*
