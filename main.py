@@ -167,7 +167,16 @@ def get_number(image, whitelist: str = "0123456789") -> str:
 
 
 def resize_image(image, scale_percent: int):
-    scale_percent = 20  # percent of original size
+    """
+    It takes an image and a scale percentage as input, and returns a resized image
+
+    Args:
+      image: The image to be resized
+      scale_percent (int): The percentage by which the image is to be scaled.
+
+    Returns:
+      The image is being resized to the dimensions specified by the scale_percent parameter.
+    """
     width = int(image.shape[1] * scale_percent / 100)
     height = int(image.shape[0] * scale_percent / 100)
     dim = (width, height)
@@ -176,7 +185,8 @@ def resize_image(image, scale_percent: int):
 
 def embed_images() -> None:
     """
-    It takes an image, finds the circles, crops them, and then uses tesseract to find the number.
+    It takes an image, finds the sheet, finds the circles, finds the numbers, and embeds the numbers
+    into the image.
     """
     images = os.listdir(f"{program_directory}/images")
     images = natsorted(images)
