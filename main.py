@@ -191,7 +191,6 @@ def embed_images() -> None:
     images = os.listdir(f"{program_directory}/images")
     images = natsorted(images)
     for i, image_path in enumerate(images):
-        print(f"\t[ ] Proccessing {i + 1} of {len(images)}")
         image = cv2.imread(f"{program_directory}/images/{image_path}", 1)
         possible_numbers = list(file_info[i].keys())
         lower = [180, 180, 180]
@@ -258,8 +257,8 @@ def embed_images() -> None:
             # for i, circle in enumerate(circles_contours):
             #     print(i, cv2.contourArea(circle))
 
-            min_area: int = 9700
-            max_area: int = 12000
+            min_area: int = 8700
+            max_area: int = 15000
             circles = [
                 circle
                 for circle in circles_contours
@@ -310,7 +309,6 @@ def embed_images() -> None:
                 # print(f"Numbers remaining: {possible_numbers}")
         print(f"\t[+] Proccessed {i + 1} of {len(images)}")
     for sheet_id in list(file_info.keys()):
-        print(f"\t[ ] Embeding {sheet_id+1} of {len(list(file_info.keys()))}")
         img = cv2.imread(f"{program_directory}/images/{sheet_id}.jpg")
         for part in list(file_info[sheet_id].keys()):
             try:
@@ -340,7 +338,7 @@ def embed_images() -> None:
                     cv2.LINE_AA,
                 )
         cv2.imwrite(f"{program_directory}/images/{sheet_id}.jpg", img)
-        print(f"\t[+] Embeded {sheet_id+1} of {len(list(file_info.keys()))}")
+        print(f"\t[+] Labeled {sheet_id+1} of {len(list(file_info.keys()))}")
 
 
 def compile_back_to_pdf(pdf_file_name) -> None:
@@ -366,7 +364,7 @@ if __name__ == "__main__":
     file_name: str = sys.argv[-1].split("\\")[-1]
     directory_of_file: str = os.getcwd()
     pdf_file_name = f"{directory_of_file}/{file_name}"
-    # pdf_file_name = "Dresser_Set_Spanner_and_Drawer_Bottoms.pdf"
+    pdf_file_name = r"C:\Users\Jared\Downloads\James Rachel.pdf"
     # pdf_file_name = "test.pdf"
     Path(f"{program_directory}/images").mkdir(parents=True, exist_ok=True)
     print(f"[ ] Getting {pdf_file_name} info...")
@@ -375,9 +373,9 @@ if __name__ == "__main__":
     print(f"[ ] Converting {pdf_file_name} to images...")
     convert_pdf_to_images(pdf_file_name)
     print(f"[+] Successfully converted {pdf_file_name} to images.")
-    print(f"[ ] Embeding {pdf_file_name}.")
+    print(f"[ ] Labeling {pdf_file_name}.")
     embed_images()
-    print(f"[+] Successfully embeded {pdf_file_name}.")
+    print(f"[+] Successfully Labeled {pdf_file_name}.")
     print(
         f"[ ] Compiling {pdf_file_name} as {pdf_file_name.replace('.pdf', ' - Embeded.pdf')}."
     )
