@@ -364,7 +364,7 @@ if __name__ == "__main__":
     file_name: str = sys.argv[-1].split("\\")[-1]
     directory_of_file: str = os.getcwd()
     pdf_file_name = f"{directory_of_file}/{file_name}"
-    pdf_file_name = r"C:\Users\Jared\Downloads\James Rachel.pdf"
+    # pdf_file_name = r"C:\Users\Jared\Downloads\James Rachel.pdf"
     # pdf_file_name = "test.pdf"
     Path(f"{program_directory}/images").mkdir(parents=True, exist_ok=True)
     print(f"[ ] Getting {pdf_file_name} info...")
