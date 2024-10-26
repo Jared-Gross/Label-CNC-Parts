@@ -151,7 +151,7 @@ def area_filter(min_area, input_image):
 
 def get_number(image, whitelist: str = "0123456789") -> str:
     """
-    > It takes an image and returns the number in the image
+    It takes an image and returns the number in the image
 
     Args:
       image: The image to be processed.
@@ -160,11 +160,13 @@ def get_number(image, whitelist: str = "0123456789") -> str:
     Returns:
       A string of the number that was found in the image.
     """
-    return pytesseract.image_to_string(
+    # Use Tesseract to extract the number
+    result = pytesseract.image_to_string(
         image,
-        config=f"-l eng --psm 6 --oem 1 -c tessedit_char_whitelist={whitelist}",
+        config=f"-l eng --psm 10 --oem 3 -c tessedit_char_whitelist={whitelist}"
     )
 
+    return result.strip()
 
 def resize_image(image, scale_percent: int):
     """
@@ -183,6 +185,33 @@ def resize_image(image, scale_percent: int):
     return cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
 
 
+def increase_canvas_size(image, canvas_size=(500, 500)):
+    """
+    Increase the canvas size of an image and center the original image within it.
+
+    Args:
+      image: The input image to be centered on a larger canvas.
+      canvas_size: A tuple (width, height) defining the size of the new canvas.
+
+    Returns:
+      The new image with the original image centered on a larger canvas.
+    """
+    # Get the original image dimensions
+    original_height, original_width = image.shape[:2]
+    
+    # Create a blank canvas with the specified size and white background
+    canvas = np.ones((canvas_size[1], canvas_size[0]), dtype=np.uint8) * 255
+    
+    # Calculate the top-left corner where the image should be placed to center it
+    x_offset = (canvas_size[0] - original_width) // 2
+    y_offset = (canvas_size[1] - original_height) // 2
+    
+    # Place the original image on the canvas
+    canvas[y_offset:y_offset + original_height, x_offset:x_offset + original_width] = image
+    
+    return canvas
+
+
 def embed_images() -> None:
     """
     It takes an image, finds the sheet, finds the circles, finds the numbers, and embeds the numbers
@@ -193,14 +222,14 @@ def embed_images() -> None:
     for i, image_path in enumerate(images):
         image = cv2.imread(f"{program_directory}/images/{image_path}", 1)
         possible_numbers = list(file_info[i].keys())
-        lower = [180, 180, 180]
-        upper = [200, 200, 200]
+        lower = [140, 140, 140]
+        upper = [180, 180, 180]
         lower = np.array(lower, dtype="uint8")
         upper = np.array(upper, dtype="uint8")
         mask = cv2.inRange(image, lower, upper)
         output = cv2.bitwise_and(image, image, mask=mask)
 
-        ret, thresh = cv2.threshold(mask, 187, 187, 187)
+        ret, thresh = cv2.threshold(mask, 255, 255, 255)
         contours, hierarchy = cv2.findContours(
             thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
         )
@@ -211,54 +240,29 @@ def embed_images() -> None:
             sheet_x -= 50
             sheet_y -= 50
             sheet = image[sheet_y : sheet_y + h + 100, sheet_x : sheet_x + w + 100]
-            cv2.rectangle(
-                output,
-                (sheet_x, sheet_y),
-                (sheet_x + w + 100, sheet_y + h + 100),
-                (0, 0, 255),
-                50,
-            )
-            test = resize_image(output, 20)
-            # cv2.imshow("image", test)
-            # cv2.waitKey(0)
-            img_float = sheet.astype(np.float64) / 255.0
-            k_channel = 1 - np.max(img_float, axis=2)
-            k_channel = (255 * k_channel).astype(np.uint8)
-            binary_thresh: int = 195
-            _, binary_image = cv2.threshold(
-                k_channel, binary_thresh, 255, cv2.THRESH_BINARY
-            )
-            min_area: int = 0
-            binary_image = area_filter(min_area, binary_image)
-            kernel_size: int = 3
-            op_iterations: int = 2
-            morph_kernel = cv2.getStructuringElement(
-                cv2.MORPH_RECT, (kernel_size, kernel_size)
-            )
 
-            binary_image = cv2.morphologyEx(
-                binary_image,
-                cv2.MORPH_CLOSE,
-                morph_kernel,
-                None,
-                None,
-                op_iterations,
-                cv2.BORDER_REFLECT101,
-            )
+            # Create a mask for the blue circles
+            blue_lower = np.array([100, 0, 0], dtype="uint8")
+            blue_upper = np.array([255, 50, 50], dtype="uint8")
+            blue_mask = cv2.inRange(sheet, blue_lower, blue_upper)
+            blurred_mask = cv2.GaussianBlur(blue_mask, (3, 3), 0)
+
+            # Use the blue_mask as the binary image
+            binary_image = blurred_mask.copy()
 
             binary_image = cv2.bitwise_not(binary_image)
 
-            test_binary_image = resize_image(binary_image, 20)
+            circles_contours = cv2.findContours(
+                binary_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
+            )[-2]
+            # test_binary_image = resize_image(binary_image, 20)
             # cv2.imshow("binary_image", test_binary_image)
             # cv2.waitKey(0)
-            circles_contours = cv2.findContours(
-                binary_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-            )[-2]
             # for i, circle in enumerate(circles_contours):
             #     print(i, cv2.contourArea(circle))
 
-            min_area: int = 8700
-            max_area: int = 15000
+            min_area: int = 5000
+            max_area: int = 10000
             circles = [
                 circle
                 for circle in circles_contours
@@ -268,39 +272,59 @@ def embed_images() -> None:
             for circle in circles:
                 x, y, w, h = cv2.boundingRect(circle)
                 cropped = image[
-                    sheet_y + y + 20 : sheet_y + y - 20 + h,
-                    sheet_x + x + 20 : sheet_x + x + w - 20,
+                    sheet_y + y + 15 : sheet_y + y - 15 + h,
+                    sheet_x + x + 15 : sheet_x + x + w - 15,
                 ]
-                cropped = cv2.bitwise_not(cropped)
+                
+                # Convert cropped image to grayscale
+                gray_cropped = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+                
+                # Create a binary mask to isolate dark areas (black)
+                _, black_mask = cv2.threshold(gray_cropped, 50, 155, cv2.THRESH_BINARY_INV)
+                
+                # Apply the mask to the cropped image
+                black_only = cv2.bitwise_and(cropped, cropped, mask=black_mask)
 
-                # print(cv2.contourArea(circle))
-                # cv2.imshow("cropped", cropped)
-                # cv2.waitKey(0)
-                kernel = np.ones((1, 1), np.float32)
-                number_image = cv2.filter2D(cropped, -1, kernel)
-                _, number_image = cv2.threshold(cropped, 120, 255, cv2.THRESH_BINARY)
-                kernel = np.ones((3, 3), np.float32)
-                number_image = cv2.filter2D(number_image, -1, kernel)
+                # Convert the cropped image to grayscale to remove colors
+                # Alternatively, just convert the masked output to grayscale
+                # This will keep only the dark regions
+                gray_black_only = cv2.cvtColor(black_only, cv2.COLOR_BGR2GRAY)
+
+                # Optional: Threshold to keep only black areas
+                _, final_mask = cv2.threshold(gray_black_only, 50, 255, cv2.THRESH_BINARY_INV)
+                
+                # Final output retains only black areas
+                black_final = cv2.bitwise_and(black_only, black_only, mask=final_mask)
+
+                if black_final is None or np.sum(black_final) == 0:
+                    continue
+
+                # Convert to grayscale
+                gray_image = cv2.cvtColor(black_final, cv2.COLOR_BGR2GRAY)
+
+                # Apply binary thresholding
+                _, thresh_image = cv2.threshold(gray_image, 128, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+                # Dilate the image to enhance the boldness
+                kernel = np.ones((3, 3), np.uint8)
+                dilated_image = cv2.dilate(thresh_image, kernel, iterations=1)
+                dilated_image = resize_image(dilated_image, 200)
+                dilated_image = increase_canvas_size(dilated_image, canvas_size=(800, 800))
+                dilated_image = cv2.blur(dilated_image,(7, 7))
                 text = (
-                    get_number(number_image, whitelist="".join(possible_numbers))
+                    get_number(dilated_image, whitelist="".join(possible_numbers))
                     .replace("\n", "")
                     .replace(" ", "")
                 )
-                # print(text)
-                # cv2.imshow("number_image", number_image)
-                # cv2.waitKey(0)
                 try:
                     possible_numbers.pop(possible_numbers.index(text))
                 except ValueError:
                     print("Could not find the number.")
                     unknown_circles = {text: circle}
-                # cv2.rectangle(
-                #     image,
-                #     (sheet_x + x, sheet_y + y),
-                #     (sheet_x + x + w, sheet_y + y + h),
-                #     (0, 255, 0),
-                #     1,
-                # )
+
+                # print(cv2.contourArea(circle), text)
+                # cv2.imshow("dilated_image", dilated_image)
+                # cv2.waitKey(0)
                 with contextlib.suppress(KeyError):
                     file_info[i][text].update({"image": [sheet_x + x, sheet_y + y]})
             if len(possible_numbers) == 1:
@@ -330,7 +354,7 @@ def embed_images() -> None:
                 cv2.putText(
                     img,
                     part_names[file_info[sheet_id][part]["Part Name"]],
-                    (x + 60, y),
+                    (x + 80, y),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     2,
                     (255, 0, 0),
@@ -364,8 +388,9 @@ if __name__ == "__main__":
     file_name: str = sys.argv[-1].split("\\")[-1]
     directory_of_file: str = os.getcwd()
     pdf_file_name = f"{directory_of_file}/{file_name}"
-    # pdf_file_name = r"C:\Users\Jared\Downloads\James Rachel.pdf"
-    # pdf_file_name = "test.pdf"
+    # pdf_file_name = r"C:\Users\Jared\Downloads\James Rachel.pdf"``
+    # pdf_file_name = r"C:\Users\CarpenterShop\Documents\test1.pdf"
+    # pdf_file_name = r"C:\Users\CarpenterShop\Documents\Pointer house 3.pdf"
     Path(f"{program_directory}/images").mkdir(parents=True, exist_ok=True)
     print(f"[ ] Getting {pdf_file_name} info...")
     parse_pdf(pdf_file_name)
